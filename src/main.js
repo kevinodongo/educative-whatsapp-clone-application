@@ -6,6 +6,7 @@ import './assets/index.css'
 
 Vue.config.productionTip = false;
 
+// amplify settings
 import Amplify from 'aws-amplify';
 import awsconfig from './aws-exports';
 Amplify.configure(awsconfig);
