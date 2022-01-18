@@ -1,5 +1,7 @@
 # educative-whatsapp-clone-app
 
+N$jvFXEnxF@3
+
 ## Project setup
 ```
 yarn install

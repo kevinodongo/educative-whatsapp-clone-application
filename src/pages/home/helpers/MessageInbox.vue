@@ -4,28 +4,80 @@
       @click="$store.dispatch('SAVE_SELECTEDMESSAGE', item)"
       v-for="(item, index) in inbox"
       :key="item.id"
-      class="flex cursor-pointer px-4 hover:bg-gray-100 items-center space-x-3"
+      class="
+        grid grid-cols-12
+        -space-x-1
+        cursor-pointer
+        px-4
+        hover:bg-gray-100
+        items-center
+      "
     >
-      <div>
+      <div class="col-span-2">
         <img
+          v-if="item.type == 'group'"
+          :src="item.groupIcon"
+          class="rounded-full inline-block h-12 w-12"
+          alt="user profile image"
+        />
+        <img
+          v-else
           :src="item.image"
-          class="rounded-full inline-block h-12 w-14"
+          class="rounded-full inline-block h-12 w-12"
           alt="user profile image"
         />
       </div>
-      <div class="flex w-full py-3 flex-col border-b border-gray-200">
-        <div class="flex items-center justify-between">
-          <div v-text="item.username" class="text-lg"></div>
+      <div
+        class="col-span-10 flex w-full py-3 flex-col border-b border-gray-200"
+      >
+        <div class="flex flex-shrink items-center justify-between">
+          <div
+            v-if="item.type"
+            v-text="item.subject"
+            class="text-md capitalize"
+          ></div>
+          <div v-else v-text="item.username" class="text-md capitalize"></div>
           <div class="text-xs text-gray-400" v-if="item.messages.length > 0">
             yesterday
           </div>
         </div>
         <div class="flex items-center justify-between">
           <div
-            class="truncate text-sm w-80 text-gray-400"
-            v-if="item.messages.length > 0"
+            class="italic text-lightGreen font-medium"
+            v-if="typingIndex.includes(index)"
           >
-            {{ item.messages[0].content }}
+            Typing....
+          </div>
+          <div v-else>
+            <div
+              class="truncate text-sm w-80 text-gray-400"
+              v-if="item.messages.length > 0"
+            >
+              <div
+                v-if="item.messages[0].convoMessages[0].type == 'images'"
+                class="flex items-center space-x-1"
+              >
+                <div>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    style="fill: #a3a3a3; transform: ; msfilter: "
+                  >
+                    <path
+                      d="M12 8c-2.168 0-4 1.832-4 4s1.832 4 4 4 4-1.832 4-4-1.832-4-4-4zm0 6c-1.065 0-2-.935-2-2s.935-2 2-2 2 .935 2 2-.935 2-2 2z"
+                    ></path>
+                    <path
+                      d="M20 5h-2.586l-2.707-2.707A.996.996 0 0 0 14 2h-4a.996.996 0 0 0-.707.293L6.586 5H4c-1.103 0-2 .897-2 2v11c0 1.103.897 2 2 2h16c1.103 0 2-.897 2-2V7c0-1.103-.897-2-2-2zM4 18V7h3c.266 0 .52-.105.707-.293L10.414 4h3.172l2.707 2.707A.996.996 0 0 0 17 7h3l.002 11H4z"
+                    ></path>
+                  </svg>
+                </div>
+                <div>Photo</div>
+              </div>
+              <div v-else>{{ item.messages[0].convoMessages[0].content }}</div>
+            </div>
+            <div v-else></div>
           </div>
           <div class="relative inline-block text-left">
             <div>
@@ -212,16 +264,82 @@
 
 <script>
 import { mapState } from "vuex";
+import { checkUserStatus } from "../../../lib/auth";
+import {
+  onCreateConversation,
+  onUpdateUser,
+} from "../../../graphql/subscriptions";
+import { API, graphqlOperation } from "aws-amplify";
 export default {
   data() {
     return {
       showIndex: null,
+      conversationSubscription: null,
+      typingSubscription: null,
+      typingIndex: [],
     };
+  },
+  beforeDestroy() {
+    this.typingSubscription.unsubscribe();
   },
   computed: {
     ...mapState({
       inbox: (state) => state.inbox,
+      logged: (state) => state.logged,
     }),
+  },
+  async mounted() {
+    const userResponse = await checkUserStatus();
+    await this.$store.dispatch(
+      "FETCH_USER_CONVERSATION",
+      userResponse.attributes.sub
+    );
+    this.conversationSubscription = API.graphql(
+      graphqlOperation(onCreateConversation)
+    ).subscribe({
+      next: ({ value }) => {
+        this.handleNewConversation(value.data.onCreateConversation);
+      },
+      error: (error) => {
+        // handle error
+        console.warn(error);
+      },
+    });
+
+    this.typingSubscription = API.graphql(
+      graphqlOperation(onUpdateUser)
+    ).subscribe({
+      next: ({ value }) => {
+        this.handleNewTyping(value.data.onUpdateUser);
+      },
+      error: (error) => {
+        // handle error
+        console.warn(error);
+      },
+    });
+  },
+  methods: {
+    handleNewConversation(event) {
+      if (this.logged.id == event.userId) {
+        event.messages = [];
+        this.$store.dispatch("SAVE_INBOX", [...this.inbox, event]);
+      }
+    },
+    handleNewTyping(event) {
+      if (event.userTyping) {
+        this.inbox.forEach((element, index) => {
+          if (element.id == event.id) {
+            this.typingIndex.push(index);
+          }
+        });
+      } else {
+        this.inbox.forEach((element, index) => {
+          if (element.id == event.id) {
+            this.typingIndex.splice(index, 1);
+          }
+        });
+      }
+    },
   },
 };
 </script>

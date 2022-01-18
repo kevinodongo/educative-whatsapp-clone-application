@@ -54,6 +54,7 @@
       type="text"
       name="message"
       id="message__input"
+      ref="inputBox"
       v-model="content"
       class="
         focus:ring-indigo-500 focus:border-indigo-500
@@ -103,11 +104,15 @@
 <script>
 import { mapState } from "vuex";
 import randomize from "randomatic";
+import { API, Storage } from "aws-amplify";
+import { debounce } from "lodash"
+import { createMessage, updateUser } from "../../../graphql/mutations";
 export default {
   data() {
     return {
       show: false,
       content: "",
+      subscription: null,
     };
   },
   computed: {
@@ -119,46 +124,88 @@ export default {
   },
   mounted() {
     const messageInput = document.getElementById("message__input");
-    messageInput.addEventListener("keyup", this.handleChange);
+    messageInput.addEventListener("keyup", this.handleKeyUp);
+    messageInput.addEventListener("keydown", this.handleKeyDown);
   },
   methods: {
-    handleChange(event) {
+    handleKeyUp(event) {
       if (event.target.value) {
         this.show = true;
+        this.debounced()
       } else {
         this.show = false;
       }
     },
-    sendMessage() {
+    debounced() {
+      debounce(function () {
+        this.updateTyping(false);
+      }, 2000);
+    },
+    async sendMessage() {
       const newMessage = {
         id: randomize("Aa0", 16),
-        source: this.logged.id,
-        recipient: this.selectedMessage.id,
+        userId: this.logged.id,
+        username: this.logged.username,
+        image: this.logged.image,
+        conversationId: this.selectedMessage.conversationId,
         content: this.content,
         type: "message",
         createdAt: new Date(),
       };
-      const item = this.selectedMessage;
-      item.messages.push(newMessage);
-      this.$store.dispatch("SAVE_MESSAGE", item);
+      await this.createNewMessage(newMessage);
       this.content = "";
     },
-    onUpload(event) {
+    async onUpload(event) {
       const items = [...event.target.files];
-      const response = items.map((event) => {
-        return URL.createObjectURL(event);
+      const response = items.map(async (event) => {
+        return await Storage.put(
+          `${event.name}-${randomize("Aa0", 10)}`,
+          event,
+          {
+            contentType: event.type,
+          }
+        );
       });
+      const result = await Promise.all(response);
+
       const newMessage = {
         id: randomize("Aa0", 16),
-        source: this.logged.id,
-        recipient: this.selectedMessage.id,
+        userId: this.logged.id,
+        username: this.logged.username,
+        image: this.logged.image,
+        conversationId: this.selectedMessage.conversationId,
         type: "images",
-        content: response,
+        content: JSON.stringify(result),
         createdAt: new Date(),
       };
-      const item = this.selectedMessage;
-      item.messages.push(newMessage);
-      this.$store.dispatch("SAVE_MESSAGE", item);
+
+      await this.createNewMessage(newMessage);
+    },
+    async createNewMessage(value) {
+      await API.graphql({
+        query: createMessage,
+        variables: {
+          input: value,
+        },
+      });
+    },
+    handleKeyDown(event) {
+      if (event.target.value.length > 0 && event.target.value.length < 2) {
+        this.updateTyping(true);
+      }
+    },
+    async updateTyping(value) {
+      const item = {
+        id: this.logged.id,
+        userTyping: value,
+      };
+      console.log(item);
+      await API.graphql({
+        query: updateUser,
+        variables: {
+          input: item,
+        },
+      });
     },
   },
 };

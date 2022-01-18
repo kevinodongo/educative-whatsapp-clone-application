@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "serviceConfiguration": {
+    "apiName": "educativewhatsapp",
+    "serviceName": "AppSync",
+    "gqlSchemaPath": "C:\\Users\\odongo\\OneDrive\\Desktop\\Educative\\educative-whatsapp-clone-app\\amplify\\backend\\api\\educativewhatsapp\\schema.graphql",
+    "defaultAuthType": {
+      "mode": "API_KEY",
+      "expirationTime": 7,
+      "apiKeyExpirationDate": "2022-01-24T20:02:23.601Z",
+      "keyDescription": ""
+    },
+    "conflictResolution": {},
+    "additionalAuthTypes": []
+  }
+}

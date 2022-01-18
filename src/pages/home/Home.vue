@@ -260,7 +260,7 @@
                   >Settings</a
                 >
                 <a
-                  href="/"
+                  @click="logOut"
                   class="
                     text-gray-700
                     hover:bg-gray-100
@@ -276,6 +276,73 @@
                 >
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+      <div
+        class="px-8 flex flex-col pt-3 space-y-1"
+        v-if="sortedGroupMembers.length > 0 && sideBarState !== 'NEW GROUP'"
+      >
+        <div
+          class="flex"
+          v-for="(item, index) in sortedGroupMembers"
+          :key="item.id ? item.id : index"
+        >
+          <div
+            class="
+              inline-flex
+              rounded-full
+              items-center
+              py-0.5
+              pl-2.5
+              pr-1
+              text-sm
+              font-medium
+              bg-gray-200
+              text-gray-700
+            "
+          >
+            <div class="flex items-center space-x-2">
+              <div>
+                <img
+                  class="inline-block h6 w-6 rounded-full"
+                  :src="item.image"
+                  alt=""
+                />
+              </div>
+              <div class="capitalize text-xs">{{ item.username }}</div>
+            </div>
+            <button
+              @click="removeMember(index)"
+              type="button"
+              class="
+                flex-shrink-0
+                ml-0.5
+                h-4
+                w-4
+                rounded-full
+                inline-flex
+                items-center
+                justify-center
+                text-gray-400
+                hover:bg-indigo-200 hover:text-indigo-500
+                focus:outline-none focus:bg-indigo-500 focus:text-white
+              "
+            >
+              <span class="sr-only">Remove large option</span>
+              <svg
+                class="h-2 w-2"
+                stroke="currentColor"
+                fill="none"
+                viewBox="0 0 8 8"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-width="1.5"
+                  d="M1 1l6 6m0-6L1 7"
+                />
+              </svg>
+            </button>
           </div>
         </div>
       </div>
@@ -377,7 +444,7 @@
               (sideBarState == 'ADD GROUP PARTICIPANTS')
           "
         >
-          <Contacts />
+          <Contacts :rightMenu="rightMenu" />
         </div>
         <div
           v-if="sideBarState == 'ARCHIVED CHATS'"
@@ -396,6 +463,12 @@
           class="absolute w-full inset-y-0 h-full"
         >
           <Settings />
+        </div>
+        <div
+          v-if="sideBarState == 'NEW GROUP'"
+          class="absolute w-full inset-y-0 h-full"
+        >
+          <CreateGroup />
         </div>
       </div>
     </div>
@@ -547,6 +620,11 @@ import MessageToolbar from "./helpers/MessageToolbar.vue";
 import MessageThread from "./helpers/MessageThread.vue";
 import ArchievedMessages from "./helpers/ArchievedMessages.vue";
 import StarredMessages from "./helpers/StarredMessages.vue";
+import { checkUserStatus, signOut } from "../../lib/auth";
+import CreateGroup from "./helpers/CreateGroup.vue";
+import { API } from "aws-amplify";
+import { updateUser } from "../../graphql/mutations";
+import _ from "lodash";
 export default {
   components: {
     MessageInbox,
@@ -555,6 +633,7 @@ export default {
     MessageThread,
     Contacts,
     Settings,
+    CreateGroup,
     ArchievedMessages,
     StarredMessages,
     ContactInfo,
@@ -564,18 +643,67 @@ export default {
       menu: false,
       rightMenu: false,
       noMessages: require("../../assets/no-message.png"),
+      error: null,
+      interval: null,
     };
+  },
+  beforeDestroy() {
+    clearInterval(this.interval);
   },
   computed: {
     ...mapState({
       selectedMessage: (state) => state.selectedMessage,
       sideBarState: (state) => state.sideBarState,
       logged: (state) => state.logged,
+      groupMembers: (state) => state.groupMembers,
     }),
+    sortedGroupMembers: function () {
+      return _.uniqBy(this.groupMembers, "username");
+    },
+  },
+  async mounted() {
+    const userResponse = await checkUserStatus();
+    await this.$store.dispatch(
+      "FETCH_USER_INFORMATION",
+      userResponse.attributes.sub
+    );
+   this.interval = setInterval(async () => {
+      await this.updateLastSeen({
+        id: this.logged.id,
+        lastSeen: new Date(),
+      });
+    }, 10000);
   },
   methods: {
     openRightMenu() {
       this.rightMenu = true;
+    },
+    async logOut() {
+      try {
+        await signOut();
+        this.$store.commit("RESET_STATE");
+        this.$router.push("/");
+      } catch (err) {
+        this.error = err.message;
+      }
+    },
+    removeMember(index) {
+      try {
+        this.$store.disptach(
+          "SAVE_GROUPMEMBER",
+          this.groupMembers.splice(index, 1)
+        );
+      } catch (error) {
+        // handle error
+      }
+    },
+    async updateLastSeen(value) {
+      await API.graphql({
+        query: updateUser,
+        variables: {
+          input: value,
+        },
+      });
     },
   },
 };

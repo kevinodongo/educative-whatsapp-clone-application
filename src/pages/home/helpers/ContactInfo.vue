@@ -12,12 +12,13 @@
       "
     >
       <img
+        v-if="selectedMessage"
         class="inline-block h-44 w-44 rounded-full"
-        src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
+        :src="selectedMessage.image"
         alt=""
       />
-      <div class="text-2xl">Michael</div>
-      <div class="text-gray-400">+14049289289</div>
+      <div class="text-2xl">{{ selectedMessage.username }}</div>
+      <div class="text-gray-400">{{ selectedMessage.phone }}</div>
       <div class="flex items-center pt-4 space-x-4">
         <button class="flex flex-col space-y-4 items-center text-tealGreen">
           <svg
@@ -240,11 +241,17 @@
 </template>
 
 <script>
+import { mapState } from 'vuex';
 export default {
   data() {
     return {
       //
     };
   },
+  computed: {
+    ...mapState({
+      selectedMessage: (state) => state.selectedMessage
+    })
+  }
 };
 </script>

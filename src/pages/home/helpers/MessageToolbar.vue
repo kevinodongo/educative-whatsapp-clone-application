@@ -1,12 +1,33 @@
 <template>
   <div class="messageInput flex items-center justify-between">
-    <a @click="openMenu" class="flex cursor-pointer space-x-4 items-center" v-if="selectedMessage">
+    <a
+      @click="openMenu"
+      class="flex cursor-pointer space-x-4 items-center"
+      v-if="selectedMessage"
+    >
       <img
+        v-if="selectedMessage.type == 'group'"
+        class="inline-block h-10 w-10 rounded-full"
+        :src="selectedMessage.groupIcon"
+        alt=""
+      />
+      <img
+        v-else
         class="inline-block h-10 w-10 rounded-full"
         :src="selectedMessage.image"
         alt=""
       />
-      <div v-text="selectedMessage.username"></div>
+      <div>
+        <div
+          v-if="selectedMessage.type == 'group'"
+          v-text="selectedMessage.subject"
+          class="text-md capitalize"
+        ></div>
+        <div v-else v-text="selectedMessage.username"></div>
+        <div v-if="!selectedMessage.type" class="text-sm text-gray-500">
+          {{ computedLastSeen }}
+        </div>
+      </div>
     </a>
     <div class="flex items-center space-x-6 text-gray-500">
       <button>
@@ -110,7 +131,15 @@
           <div class="py-1" role="none">
             <a
               @click="openMenu"
-              class="text-gray-700 cursor-pointer hover:bg-gray-100 block px-4 py-2 text-sm"
+              class="
+                text-gray-700
+                cursor-pointer
+                hover:bg-gray-100
+                block
+                px-4
+                py-2
+                text-sm
+              "
               role="menuitem"
               tabindex="-1"
               id="menu-item-0"
@@ -156,26 +185,53 @@
 </template>
 
 <script>
-import { mapState } from 'vuex';
+import { mapState } from "vuex";
+import { formatDistanceToNow } from "date-fns";
+import { onUpdateUser } from "../../../graphql/subscriptions";
+import { API, graphqlOperation } from "aws-amplify";
 export default {
   props: {
-    openRightMenu: Function
+    openRightMenu: Function,
   },
   data() {
     return {
       menu: false,
+      last_seen: new Date(),
+      subscription: null,
     };
+  },
+  beforeDestroy() {
+    this.subscription.unsubscribe();
   },
   computed: {
     ...mapState({
-      selectedMessage: (state) => state.selectedMessage
-    })
+      selectedMessage: (state) => state.selectedMessage,
+    }),
+    computedLastSeen: function () {
+      return formatDistanceToNow(new Date(this.last_seen), { addSuffix: true });
+    },
+  },
+  mounted() {
+    this.subscription = API.graphql(graphqlOperation(onUpdateUser)).subscribe({
+      next: ({ value }) => {
+        this.handleNewLastSeen(value.data.onUpdateUser);
+      },
+      error: (error) => {
+        // handle error
+        console.warn(error);
+      },
+    });
   },
   methods: {
-    openMenu(){
-      this.menu = false
-      this.$emit("openRightMenu")
-    }
+    openMenu() {
+      this.menu = false;
+      this.$emit("openRightMenu");
+    },
+    handleNewLastSeen(event) {
+      if (this.selectedMessage.userId == event.id) {
+        this.last_seen = event.lastSeen;
+      }
+    },
   },
 };
 </script>
