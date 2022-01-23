@@ -225,7 +225,7 @@
 import { API } from "aws-amplify";
 import { createUser } from "../../graphql/mutations";
 import { signIn } from "../../lib/auth";
-import { mapState } from 'vuex';
+import { mapState } from "vuex";
 export default {
   data() {
     return {
@@ -238,8 +238,8 @@ export default {
   },
   computed: {
     ...mapState({
-      logged: (state) => state.logged
-    })
+      logged: (state) => state.logged,
+    }),
   },
   methods: {
     // login user
@@ -248,7 +248,8 @@ export default {
         this.isLoading = true;
         const userResponse = await signIn(this.email, this.password);
         // get user information from dynamodb
-        await this.$store.dispatch("FETCH_USER_INFORMATION",
+        await this.$store.dispatch(
+          "FETCH_USER_INFORMATION",
           userResponse.attributes.sub
         );
 
@@ -275,8 +276,8 @@ export default {
           email: user.email,
           phone: user["custom:phoneNumber"],
           image:
-            "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80",
-          username: "",
+            "https://res.cloudinary.com/dk5ch7wqm/image/upload/v1642932897/images_1_hlctu0.png",
+          username: this.getUserName(user.email),
           createdAt: new Date(),
         };
         console.log("[[NEW USER]]", newUser);
@@ -292,6 +293,11 @@ export default {
         // handle error
         throw new Error(error);
       }
+    },
+
+    // get user name
+    getUserName(email) {
+      return email.split("@")[0];
     },
   },
 };

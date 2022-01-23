@@ -53,9 +53,18 @@
       </div>
     </div>
     <div v-if="selectedMessage" class="flex flex-col space-y-3">
-      <div v-for="(item, index) in selectedMessage.messages" :key="index" class="flex flex-col space-y-3">
+      <div
+        v-for="(item, index) in selectedMessage.messages"
+        :key="index"
+        class="flex flex-col space-y-3"
+      >
         <div class="flex items-center justify-center">
-          <div style="background-color: #bae6fd" class="p-2 text-sm rounded-md shadow">{{ item.date }}</div>
+          <div
+            style="background-color: #bae6fd"
+            class="p-2 text-sm rounded-md shadow"
+          >
+            {{ item.date }}
+          </div>
         </div>
         <div class="flex flex-col space-y-3">
           <div
@@ -303,8 +312,19 @@ export default {
       return formatDistanceToNow(new Date(item), { addSuffix: true });
     },
     handleNewMessage(event) {
-      if (this.selectedMessage.conversationId !== event.conversationId) return;
-      this.$store.dispatch("SAVE_MESSAGE", event);
+      const convoId = event.conversationId.split("=");
+      // individual conversation check
+      if (convoId.includes(this.logged.id)) {
+        this.$store.dispatch("SAVE_MESSAGE", event);
+      }
+
+      // group conversation check
+      if (
+        convoId.length == 1 &&
+        this.selectedMessage.conversationId == event.conversationId
+      ) {
+        this.$store.dispatch("SAVE_MESSAGE", event);
+      }
     },
   },
 };

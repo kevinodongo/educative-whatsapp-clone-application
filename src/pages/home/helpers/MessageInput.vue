@@ -105,7 +105,6 @@
 import { mapState } from "vuex";
 import randomize from "randomatic";
 import { API, Storage } from "aws-amplify";
-import { debounce } from "lodash"
 import { createMessage, updateUser } from "../../../graphql/mutations";
 export default {
   data() {
@@ -131,15 +130,16 @@ export default {
     handleKeyUp(event) {
       if (event.target.value) {
         this.show = true;
-        this.debounced()
+        setTimeout(async () => {
+          await this.updateTyping(
+            `${false}/${this.getTheConversatioId(
+              this.selectedMessage.conversationId
+            )}`
+          );
+        }, 2000);
       } else {
         this.show = false;
       }
-    },
-    debounced() {
-      debounce(function () {
-        this.updateTyping(false);
-      }, 2000);
     },
     async sendMessage() {
       const newMessage = {
@@ -189,23 +189,35 @@ export default {
         },
       });
     },
-    handleKeyDown(event) {
-      if (event.target.value.length > 0 && event.target.value.length < 2) {
-        this.updateTyping(true);
+    async handleKeyDown(event) {
+      if (event.target.value.length > 1) {
+        await this.updateTyping(
+          `${true}/${this.getTheConversatioId(
+            this.selectedMessage.conversationId
+          )}`
+        );
       }
     },
     async updateTyping(value) {
       const item = {
         id: this.logged.id,
-        userTyping: value,
+        userTyping: `${value}`,
       };
-      console.log(item);
+
       await API.graphql({
         query: updateUser,
         variables: {
           input: item,
         },
       });
+    },
+    getTheConversatioId(event) {
+      const convoId = event.split("=");
+      if (convoId.length == 1) {
+        return event;
+      } else {
+        return `${convoId[1]}=${convoId[0]}`;
+      }
     },
   },
 };

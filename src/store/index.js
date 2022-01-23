@@ -52,22 +52,31 @@ export default new Vuex.Store({
       commit("UPDATE_SIDEBARSTATE", value)
     },
     async SAVE_MESSAGE(context, value) {
+      // update new message 
       const item = context.state.selectedMessage;
+      const backupInbox = context.state.inbox
+      const index = context.state.inbox.indexOf(item)
+
+      // get the selected message and get the grouped messages
       const response = item.messages.filter((e) => e.date == value.createdAt.split('T')[0])
+
       if (response.length > 0) {
         response[0].convoMessages.push(value)
         const orderMessages = _.orderBy(_.uniqBy(response[0].convoMessages, 'id'), 'createdAt', 'asc')
         const groupedMessagesByDate = _(orderMessages).groupBy((message) => message.createdAt.split('T')[0]).map((value, key) => ({ date: key, convoMessages: value })).value()
         item.messages = groupedMessagesByDate
+        backupInbox[index] = item
         context.commit("UPDATE_SELECTEDMESSAGE", item)
+        context.commit("UPDATE_INBOX", backupInbox)
       } else {
         item.messages = [{
           date: value.createdAt.split('T')[0],
           convoMessages: [value]
         }]
+        backupInbox[index] = item
         context.commit("UPDATE_SELECTEDMESSAGE", item)
+        context.commit("UPDATE_INBOX", backupInbox)
       }
-
     },
     SAVE_GROUPMEMBER({ commit }, value) {
       commit("UPDATE_GROUP_MEMBERS", value)
@@ -97,12 +106,34 @@ export default new Vuex.Store({
       );
       if (!convoResponse) return
       const sortedResponse = convoResponse.data.queryConversationByUserId.items.map(async (convo) => {
-        const messageResponse = await API.graphql(
-          graphqlOperation(queryMessageByConversationId, {
-            conversationId: convo.conversationId
-          })
-        )
-        const messages = messageResponse.data.queryMessageByConversationId.items
+
+        const convoId = convo.conversationId.split("=");
+        let messages = []
+
+        if (convoId.length == 1) {
+          const groupResponse = await API.graphql(
+            graphqlOperation(queryMessageByConversationId, {
+              conversationId: convo.conversationId
+            })
+          )
+          messages = groupResponse.data.queryMessageByConversationId.items
+        } else {
+          const sourceResponse = await API.graphql(
+            graphqlOperation(queryMessageByConversationId, {
+              conversationId: convo.conversationId
+            })
+          )
+
+          const recipientResponse = await API.graphql(
+            graphqlOperation(queryMessageByConversationId, {
+              conversationId: `${convoId[1]}=${convoId[0]}`
+            })
+          )
+
+          messages = [...sourceResponse.data.queryMessageByConversationId.items, ...recipientResponse.data.queryMessageByConversationId.items]
+
+        }
+
         const orderMessages = _.orderBy(_.uniqBy(messages, 'id'), 'createdAt', 'asc')
         const groupedMessagesByDate = _(orderMessages).groupBy((message) => message.createdAt.split('T')[0]).map((value, key) => ({ date: key, convoMessages: value })).value()
         convo.messages = groupedMessagesByDate

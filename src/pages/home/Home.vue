@@ -667,12 +667,10 @@ export default {
       "FETCH_USER_INFORMATION",
       userResponse.attributes.sub
     );
-   this.interval = setInterval(async () => {
-      await this.updateLastSeen({
-        id: this.logged.id,
-        lastSeen: new Date(),
-      });
-    }, 10000);
+    await this.updateLastSeen({
+      id: this.logged.id,
+      lastSeen: new Date(),
+    });
   },
   methods: {
     openRightMenu() {

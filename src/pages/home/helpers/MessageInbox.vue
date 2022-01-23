@@ -270,6 +270,7 @@ import {
   onUpdateUser,
 } from "../../../graphql/subscriptions";
 import { API, graphqlOperation } from "aws-amplify";
+import _ from "lodash";
 export default {
   data() {
     return {
@@ -278,9 +279,6 @@ export default {
       typingSubscription: null,
       typingIndex: [],
     };
-  },
-  beforeDestroy() {
-    this.typingSubscription.unsubscribe();
   },
   computed: {
     ...mapState({
@@ -322,22 +320,33 @@ export default {
     handleNewConversation(event) {
       if (this.logged.id == event.userId) {
         event.messages = [];
-        this.$store.dispatch("SAVE_INBOX", [...this.inbox, event]);
+        this.$store.dispatch(
+          "SAVE_INBOX",
+          _.uniqBy([...this.inbox, event], "id")
+        );
       }
     },
     handleNewTyping(event) {
+      // we dont want to listen to logged in user typing but others
+      if (this.logged.id == event.id) return;
+
       if (event.userTyping) {
-        this.inbox.forEach((element, index) => {
-          if (element.id == event.id) {
-            this.typingIndex.push(index);
-          }
-        });
-      } else {
-        this.inbox.forEach((element, index) => {
-          if (element.id == event.id) {
-            this.typingIndex.splice(index, 1);
-          }
-        });
+        const status = event.userTyping.split("/");
+        if (status[0] == "true") {
+          this.inbox.forEach((element, index) => {
+            if (element.conversationId == status[1]) {
+              this.typingIndex.push(index);
+            }
+          });
+        } else {
+          this.inbox.forEach((element, index) => {
+            if (element.conversationId == status[1]) {
+              const i = this.typingIndex.indexOf(index)
+              this.typingIndex.splice(i, 1);
+              console.log(this.typingIndex);
+            }
+          });
+        }
       }
     },
   },
